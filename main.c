@@ -43,12 +43,18 @@ static void menu_screen(void);
 
 static void login(void);
 
-static sqlite3 *db;
+static void init(void);
+
+// sqlite3 tools
+sqlite3 *db;
+sqlite3_stmt *result;
+char *err_msg = NULL;
+
 
 typedef struct{
     char name[MAX_LEN];
     char surname[MAX_LEN];
-    char city[MAX_LEN];
+    char adress[MAX_LEN];
     int age;
     int id;
     float balance;
@@ -57,27 +63,8 @@ typedef struct{
 
 int main(void)
 {
-    char *err_msg = NULL;
-    char *sql_command = "CREATE TABLE IF NOT EXISTS Customers(Name TEXT, Surname TEXT, City TEXT, Age INT, Id INT,Balance INT);";
-
-    int rc = sqlite3_open("data.db", &db);
-
-    
-    if (rc != SQLITE_OK){
-        printf("Failed to open / create DATABASE file. Quitting...\n");
-        return -1;
-    }
-
-    rc = sqlite3_exec(db, sql_command, 0, 0, &err_msg);
-
-    if (rc != SQLITE_OK){
-        printf("SQL ERROR: %s\n", err_msg);
-        sqlite3_free(err_msg);
-        return -1;
-    }
-    else{
-        printf("Operation Succesful!\n");
-    }
+    init();
+    menu_screen();
 
     sqlite3_close(db);
 
@@ -88,48 +75,91 @@ static void add_new_customer(void)
 {   
     Customer customer;
 
+    char *sql_command = "INSERT INTO Customers (Name TEXT, Surname TEXT, Adress TEXT, Age INT, Id INT, Balance INT) VALUES (?, ?, ?, ?, ?, ?)";
+    
     // name
     printf("Enter name: ");
-    scanf("%s",customer.name);
+    fgets(customer.name, MAX_LEN, stdin);
     // surname
     printf("Enter surname: ");
-    scanf("%s",customer.surname);
-    // city
-    printf("Enter city: ");
-    scanf("%s",customer.city);
+    fgets(customer.surname, MAX_LEN, stdin);
+    // adress
+    printf("Enter Adress: ");
+    fgets(customer.adress, MAX_LEN, stdin);
     // age
     printf("Enter age: ");
     scanf("%d",customer.age);
     // id
     printf("Enter id: ");
     scanf("%d",customer.id);
-
     // balance : 0
     customer.balance = 0.0f;
 
-    // adding to the sql db
+    sqlite3_prepare_v2(db, sql_command, -1, &result, 0);
 
+    sqlite3_bind_text(result, 1, customer.name, -1, SQLITE_STATIC);
+    sqlite3_bind_text(result, 2, customer.surname, -1, SQLITE_STATIC);
+    sqlite3_bind_text(result, 3, customer.adress, -1, SQLITE_STATIC);
+    sqlite3_bind_int(result, 4, customer.age);
+    sqlite3_bind_int(result, 5, customer.id);
+    sqlite3_bind_int(result, 6, customer.balance);
+
+    // step is like execute, it runs the sorgu.
+    if(sqlite3_step(result) == SQLITE_DONE){
+        printf("Record added succesfully.\n");
+    }
+    else{
+        printf("An error occured while adding record to the database.\n");
+    }
+
+    // clearing memory
+    sqlite3_finalize(result);
 
 }
 
 static void edit_customer_data(void)
 {
-    // emptyy
+    char *sql_command = "SELECT * FROM Customers WHERE Id=?";
+    int id;
+    unsigned int option;
+    
+    do{
+        printf("Select Option:\n[1] Edit Name\n[2] Edit Surname\n[3] Edit adress\n[4] Edit Age\n[5] Edit ID\n[6] Delete Customer>>>");
+        scanf("%d",&option);
+    } while (option > 6);
+
+    printf("Enter customer ID: ");
+    scanf("%d",id);
+
+    // can check if id is valid in future...
+
+    // will show results here
+    sqlite3_prepare_v2(db, sql_command, -1, &result, 0);
+    sqlite3_bind_int(result, 1, id);
+
+    if(sqlite3_step(result) ==  SQLITE_NOTFOUND){
+        printf("Customer ID not found.\n");
+    }
+    else{
+
+    }
+    sqlite3_finalize(result);
+
 }
 
 static void view_customer_data(void)
 {
-    // empty
+    return;
 }
 
 static void edit_balance(void)
 {
-    // emptyy
+    return;
 }
 
 static void login(void)
 {
-    // empty
+    return;
 }
 
 static void menu_screen(void)
@@ -162,5 +192,27 @@ static void menu_screen(void)
 
 }
 
+static void init()
+{
+    char *sql_command = "CREATE TABLE IF NOT EXISTS Customers(Name TEXT, Surname TEXT, Adress TEXT, Age INT, Id INT,Balance INT);";
 
+    int rc = sqlite3_open("data.db", &db);
 
+    
+    if (rc != SQLITE_OK){
+        printf("Failed to open / create DATABASE file. Quitting...\n");
+        return -1;
+    }
+
+    rc = sqlite3_exec(db, sql_command, 0, 0, &err_msg);
+
+    if (rc != SQLITE_OK){
+        printf("SQL ERROR: %s\n", err_msg);
+        sqlite3_free(err_msg);
+        return -1;
+    }
+    else{
+        printf("Operation Succesful!\n");
+    }
+
+}
